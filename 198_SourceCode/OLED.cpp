@@ -7,6 +7,11 @@
 
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+void OLED_init(); //Call in setup() to initialize the OLED display
+void OLED_display_rep(int rep); //Call each time rep changes
+void OLED_display_HR(int minHR, int maxHR, int actualHR); //Call to show the HR range and actual HR
+void OLED_warning(const char* problem); //Call to display a warning message
+
 
 void OLED_init() {
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -14,17 +19,18 @@ void OLED_init() {
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
 }
-void OLED_display_rep() {
-    // delay(1000);
+
+void OLED_display_rep(int rep) {
 // Must clear the display before putting anything on it
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(5, 0);
     display.print("Reps: ");
+    display.print(rep);
 //    Serial.println(adcValue); // Print the value to Serial Monitor
     display.display();
 }
-void OLED_display_HR(minHR, maxHR, actualHR) {
+void OLED_display_HR(int minHR, int maxHR, int actualHR) {
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(5, 0);
@@ -43,11 +49,14 @@ void OLED_display_HR(minHR, maxHR, actualHR) {
 
     display.display();
 }
-void OLED_warning(){
+void OLED_warning(const char* problem) {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(1);
 
     display.setCursor(0, 0);
     display.println("WARNING!");
+    display.setCursor(0, 20);
+    display.println(problem);
+    display.display();
 }
