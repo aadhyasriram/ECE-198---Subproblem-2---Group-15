@@ -5,6 +5,10 @@
 // Create an object from the DFRobot_MAX30102 class
 DFRobot_MAX30102 particleSensor; // Allows us to call methods (functions) from the class
 // Put your setup code here, to run once:
+int32_t SPO2;
+int32_t heartRate;
+int8_t validSPO2;
+int8_t validHeartRate;
 void Max30102_init() {
     // Serial.begin(115200); // Initialize Serial Monitor at 115200 baud
     // Wire.begin(); // Enable I2C (SDA: A4, SCL: A5)
@@ -23,4 +27,8 @@ void Max30102_init() {
 void Max30102_read() {
     int IRvalue = particleSensor.getIR();
     Serial.println(IRvalue); // Print the IR values to Serial Monitor
+}
+void Max30102_readHR(){
+    particleSensor.heartrateAndOxygenSaturation(&SPO2, &validSPO2, &heartRate, &validHeartRate);
+    Serial.print(heartRate);
 }
