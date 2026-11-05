@@ -1,40 +1,41 @@
+#include "OLED.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <cstring>
 // Screen Variables
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
 #define OLED_RESET -1
+// int SDA_PIN=0;
+// int SCL_PIN=1;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-coord find_coord(int len, int y_offset=0, int x_offset=0); //Finds the coordinates to center text on the screen
-void OLED_init(); //Call in setup() to initialize the OLED display
-void OLED_display_rep(int rep); //Call each time rep changes
-void OLED_display_HR(int minHR, int maxHR, int actualHR); //Call to show the HR range and actual HR
-void OLED_warning(const char* problem); //Call to display a warning message
+// coord find_coord(int len, int y_offset=0, int x_offset=0); //Finds the coordinates to center text on the screen
+// int int_len(int n);
+// void OLED_init(); //Call in setup() to initialize the OLED display
+// void OLED_display_rep(int rep); //Call each time rep changes
+// void OLED_display_HR(int minHR, int maxHR, int actualHR); //Call to show the HR range and actual HR
+// void OLED_warning(const char* problem); //Call to display a warning message
 
-class coord{   
-  public:
-    int x;
-    int y;
-    coord(int x, int y) {
-      this->x = x;
-      this->y = y;
-    }
-    int getX() {
-      return x;
-    }
-    int getY() {
-      return y;
-    }
-}
 
-coord find_coord(int len, int y_offset=0, int x_offset=0) {
-    int x = (SCREEN_WIDTH - len) / 2 + x_offset;
+coord find_coord(int len, int y_offset, int x_offset) {
+    int x = (SCREEN_WIDTH - len*6) / 2 + x_offset;
     int y = (SCREEN_HEIGHT - 8) / 2 + y_offset;
     return coord(x, y);
 }
+
+int int_len(int n){
+  int len=1;
+  while (n > 9){
+    len+=1;
+    n=n/10;
+  }
+  return len;
+}
+
 void OLED_init() {
+    Wire.begin();
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     display.clearDisplay();
     display.setTextSize(1);
@@ -43,7 +44,7 @@ void OLED_init() {
 
 void OLED_display_rep(int rep) {
 // Must clear the display before putting anything on it
-    coord rep_coord = find_coord(7 + strlen(String(rep)), 0, -20);
+    coord rep_coord = find_coord(7 + int_len(rep), 0, -20);
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(rep_coord.getX(), rep_coord.getY());
@@ -57,8 +58,8 @@ void OLED_display_HR(int minHR, int maxHR, int actualHR) {
         OLED_warning("HR too high");
         return;
     }
-    coord hr_coord = find_coord(13+strlen(String(actualHR)), -20);
-    coord range_coord = find_coord(12+strlen(String(minHR))+strlen(String(maxHR)), 20);
+    coord hr_coord = find_coord(13+int_len(actualHR), -20);
+    coord range_coord = find_coord(12+int_len(minHR)+int_len(maxHR), 20);
     display.clearDisplay();
     display.setTextSize(1);
     display.setCursor(hr_coord.getX(), hr_coord.getY());
@@ -85,7 +86,7 @@ void OLED_warning(const char* problem) {
     display.setCursor(warn_coord.getX(), warn_coord.getY());
     display.println("WARNING");
     display.setCursor(prob_coord.getX(), prob_coord.getY());
-    display.println(*problem);
+    display.println(problem);
     display.display();
 }
 
