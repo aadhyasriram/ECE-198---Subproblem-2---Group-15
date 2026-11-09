@@ -42,22 +42,24 @@ void Max30102_readHR(){
     Serial.print(heartRate);
 }
 
-int restingHR(){
-    int arr[10];
-    for(int i=0; i<10; i++){
-        Max30102_readHR();
-        arr[i]=heartRate;
-        delay(1000);
+int restingHR() {
+    int arr[4];
+    int count = 0;
+
+    // Collect 4 valid readings
+    while (count < 4) {
+        int reading = Max30102_readHR();
+
+        if (reading != -1) {
+            arr[count] = reading;
+            count++;
+        }
+
+        delay(500);
     }
-    std::sort(arr, arr+10);
-    if (sampleCount % 2 == 1) {
-        int restingHR = HR_samples[sampleCount / 2];
-    }
-    else {
-        int restingHR = (
-            HR_samples[sampleCount / 2 - 1] +
-            HR_samples[sampleCount / 2]
-        ) / 2;
-    }
-    return restingHR;
+
+    std::sort(arr, arr + 4);
+
+    // Median of 10 values = average of the two middle values
+    return (arr[1] + arr[2]) / 2;
 }
