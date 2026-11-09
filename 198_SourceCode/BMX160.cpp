@@ -15,12 +15,27 @@
 
 #include <DFRobot_BMX160.h>
 #include "BMX160.h"
+#define g 9.81
+#define cycle 10000
+#define alpha 0.8
 
 DFRobot_BMX160 bmx160;
+
+forearm_position current_position;
+uint16 half_rep_count;
+double hammer_curl_error;
+unsigned long last_time;
+float filter_output;
+boolean filter_first_reading;
+
 void imu_init(){
   Serial.begin(115200);
   delay(100);
-  
+  current_position = FLOATING;
+  half_rep_count = 0;
+  hammer_curl_error = 1;
+  last_time = 0;
+  filter_first_reading = true;
   //init the hardware bmx160  
   if (bmx160.begin() != true){
     Serial.println("init false");
@@ -53,34 +68,67 @@ void get_sensor_data(){
   sBmx160SensorData_t Omagn, Ogyro, Oaccel;
 
   /* Get a new sensor event */
-  bmx160.getAllData(&Omagn, &Ogyro, &Oaccel);
-
-  /* Display the magnetometer results (magn is magnetometer in uTesla) */
-  Serial.print("M ");
-  Serial.print("X: "); Serial.print(Omagn.x); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Omagn.y); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Omagn.z); Serial.print("  ");
-  Serial.println("uT");
-
-  /* Display the gyroscope results (gyroscope data is in g) */
-  Serial.print("G ");
-  Serial.print("X: "); Serial.print(Ogyro.x); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Ogyro.y); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Ogyro.z); Serial.print("  ");
-  Serial.println("g");
-  
-  /* Display the accelerometer results (accelerometer data is in m/s^2) */
-  Serial.print("A ");
-  Serial.print("X: "); Serial.print(Oaccel.x    ); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(Oaccel.y    ); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(Oaccel.z    ); Serial.print("  ");
-  Serial.println("m/s^2");
-
-  Serial.println("");
-
-  delay(500);
+  unsigned long current_time = micros();
+  if (current_time - last_time >= cycle) {
+    last_time += cycle;
+    bmx160.getAllData(&Omagn, &Ogyro, &Oaccel);
+    // selected exercise will be passed in
+    rep_count(HAMMER_CURLS, Omagn, Oaccel, Ogyro);
+  }
 }
-// TODO: intrepet data from sensors
-uint16_t rep_count() {
 
+// TODO: intrepet data from sensors
+uint16_t rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
+  switch (excr) {
+    case CARDIO:
+      return 0;
+    case HAMMER_CURLS:
+      filter_output = filter_first_reading ? Oaccel.y : alpha * filter_output + (1 - alpha) * Oaccel.y;
+      filter_first_reading = false;
+      float abs_filter_output = filter_output > 0 ? filter_output : -filter_output; //to get rid of orientation issues
+      // use forearm axis
+      if ((abs_filter_output <= hammer_curl_error && abs_filter_output >= 0.0) || 
+        ((abs_filter_output >= -hammer_curl_error) && abs_filter_output<= 0.0 )) 
+      {
+        if (current_position == FLOATING) {
+          current_position = UP;
+        } else if (current_position == DOWN) {
+          ++half_rep_count;
+          current_position = UP;
+        }
+      } else if ((abs_filter_output <= hammer_curl_error + g && abs_filter_output >= g) || 
+        ((abs_filter_output >= -hammer_curl_error + g) && abs_filter_output <= g )) 
+      {
+        if (current_position == FLOATING) {
+          current_position = DOWN;
+        } else if (current_position == UP) {
+          ++half_rep_count;
+          current_position = DOWN;
+        }
+      }
+      return half_rep_count / 2;
+    case TRICEP_PUSHDOWN:
+      // stuff
+      return 0;
+    case SHOULDER_PRESS:
+      // stuff
+      return 0;
+    case SEATED_AB_CRUNCH:
+      // stuff
+      return 0;
+    case LAT_PULLDOWN:
+      //stuff
+      return 0;
+    case INCLINE_BENCH_PRESS:
+      //stuff
+      return 0;
+    case DUMBBELL_SUMO_SQUAT:
+      //stuff
+      return 0;
+    case ROMANIAN_DEADLIFT:
+      //stuff
+      return 0;
+    default:
+      return 0;
+  }
 }
