@@ -1,10 +1,11 @@
 #include "buttons.h"
 
 void setup() {
-    initializeButtons();
+    buttons_init();
 }
 
 void loop() {
     checkPowerButton();
     checkNextButton();
+    updateTimer();
 }
