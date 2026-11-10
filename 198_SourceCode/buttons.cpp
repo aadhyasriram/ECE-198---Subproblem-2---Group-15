@@ -1,4 +1,4 @@
-
+#include "buttons.h"
 const int POWER_BUTTON = 2;
 const int NEXT_BUTTON = 3;
 
@@ -142,3 +142,5 @@ void displayCurrentExercise() {
   Serial.print("Current Exercise: ");
   Serial.println(exercises[currentExercise]);
 }
+
+
