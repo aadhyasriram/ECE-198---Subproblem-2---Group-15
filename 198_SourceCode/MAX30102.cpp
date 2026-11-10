@@ -14,7 +14,7 @@ int HR_c=0; // calibration variable for heart rate
 
 void Max30102_init();//call in setup()
 void Max30102_readIR();//call to read the infrared value too technical, prob won't use it
-void Max30102_readHR();//call to read the heart rate
+int Max30102_readHR();//call to read the heart rate
 int restingHR();//call to get the resting heart rate
 
 void Max30102_init() {
@@ -36,10 +36,10 @@ void Max30102_readIR() {
     int IRvalue = particleSensor.getIR();
     Serial.println(IRvalue); // Print the IR values to Serial Monitor
 }
-void Max30102_readHR(){
+int Max30102_readHR(){
     particleSensor.heartrateAndOxygenSaturation(&SPO2, &validSPO2, &heartRate, &validHeartRate);
     heartRate = heartRate + HR_c; // calibration for heart rate
-    Serial.print(heartRate);
+    return heartRate;
 }
 
 int restingHR() {
