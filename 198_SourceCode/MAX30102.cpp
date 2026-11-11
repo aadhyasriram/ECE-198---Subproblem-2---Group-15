@@ -12,10 +12,12 @@ int8_t validSPO2;
 int8_t validHeartRate;
 int HR_c=0; // calibration variable for heart rate
 
-void Max30102_init();//call in setup()
-void Max30102_readIR();//call to read the infrared value too technical, prob won't use it
-int Max30102_readHR();//call to read the heart rate
-int restingHR();//call to get the resting heart rate
+// void Max30102_init();//call in setup()
+// void Max30102_readIR();//call to read the infrared value too technical, prob won't use it
+// int Max30102_readHR();//call to read the heart rate
+// int Max30102_filteredHR(int prevHR);//call to read the filtered heart rate
+
+// int restingHR();//call to get the resting heart rate
 
 void Max30102_init() {
     // Serial.begin(115200); // Initialize Serial Monitor at 115200 baud
@@ -40,6 +42,13 @@ int Max30102_readHR(){
     particleSensor.heartrateAndOxygenSaturation(&SPO2, &validSPO2, &heartRate, &validHeartRate);
     heartRate = heartRate + HR_c; // calibration for heart rate
     return heartRate;
+}
+int Max30102_filteredHR(int prevHR){
+    int chr = Max30102_readHR();
+    if (chr == -999) {
+        return prevHR; // Return previous heart rate if current reading is invalid
+    }
+    return 0.3*prevHR + 0.7*chr; // Apply a simple low-pass filter to smooth the heart rate readings
 }
 
 int restingHR() {
