@@ -13,7 +13,7 @@
   * date  2019-6-25
   */
 
-#include <DFRobot_BMX160.h>
+#include <Arduino.h>
 #include "BMX160.h"
 #define g 9.81
 #define cycle 10000
@@ -22,7 +22,7 @@
 DFRobot_BMX160 bmx160;
 
 forearm_position current_position;
-uint16 half_rep_count;
+int half_rep_count;
 double hammer_curl_error;
 unsigned long last_time;
 float filter_output;
@@ -64,7 +64,7 @@ void imu_init(){
   delay(100);
 }
 
-void get_sensor_data(){
+void get_sensor_data(exercises excr){
   sBmx160SensorData_t Omagn, Ogyro, Oaccel;
 
   /* Get a new sensor event */
@@ -73,17 +73,17 @@ void get_sensor_data(){
     last_time += cycle;
     bmx160.getAllData(&Omagn, &Ogyro, &Oaccel);
     // selected exercise will be passed in
-    rep_count(HAMMER_CURLS, Omagn, Oaccel, Ogyro);
+    Serial.println(rep_count(excr, Omagn, Oaccel, Ogyro));
   }
 }
 
-// TODO: intrepet data from sensors
-uint16_t rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
+// TODO: interpret data from sensors
+int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
   switch (excr) {
     case CARDIO:
       return 0;
-    case HAMMER_CURLS:
-      filter_output = filter_first_reading ? Oaccel.y : alpha * filter_output + (1 - alpha) * Oaccel.y;
+    case HAMMER_CURLS: {
+      filter_output = filter_first_reading ? Oaccel.z : alpha * filter_output + (1 - alpha) * Oaccel.z;
       filter_first_reading = false;
       float abs_filter_output = filter_output > 0 ? filter_output : -filter_output; //to get rid of orientation issues
       // use forearm axis
@@ -107,6 +107,7 @@ uint16_t rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_
         }
       }
       return half_rep_count / 2;
+    }
     case TRICEP_PUSHDOWN:
       // stuff
       return 0;

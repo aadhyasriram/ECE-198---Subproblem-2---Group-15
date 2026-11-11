@@ -1,5 +1,6 @@
 #ifndef BMX160_H
 #define BMX160_H
+#include <DFRobot_BMX160.h>
 enum exercises{
     CARDIO,
     HAMMER_CURLS,
@@ -19,8 +20,8 @@ enum forearm_position{
 };
 
 void imu_init(); //initalizes imu
-void get_sensor_data();
-uint16_t rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro);
+void get_sensor_data(exercises excr);
+int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro);
 
 
 
