@@ -1,19 +1,6 @@
 #include "buttons.h"
+#include "OLED.h"
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
- 
-// OLED settings
-const int SCREEN_WIDTH = 128;
-const int SCREEN_HEIGHT = 64;
-const uint8_t OLED_ADDRESS = 0x3C;   // try 0x3D if the screen stays blank
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
- 
-// Layout: small header on the top row, main content fills the rest
-const int HEADER_HEIGHT = 12;
-const int BODY_TOP = HEADER_HEIGHT;
-const int BODY_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT;
  
 const int POWER_BUTTON = 2;
 const int NEXT_BUTTON = 3;
@@ -59,110 +46,12 @@ long lastShownSeconds = -1;
 bool cardioDone = false;
  
  
-// ---------- Text layout helpers ----------
- 
-// Splits text into lines at spaces so that no line is longer than maxChars.
-// Returns the number of lines, or -1 if it doesn't fit (a word that is too
-// long, or more than maxLines lines needed).
-int wrapText(const char* t, int maxChars, int maxLines, int starts[], int lens[]) {
-  int len = strlen(t);
-  int n = 0;
-  int i = 0;
- 
-  while (i < len) {
-    while (i < len && t[i] == ' ') i++;
-    if (i >= len) break;
-    if (n >= maxLines) return -1;
- 
-    int start = i;
-    int end = i;
- 
-    while (i < len) {
-      int wordStart = i;
-      while (i < len && t[i] != ' ') i++;
-      int wordEnd = i;
- 
-      if (wordEnd - wordStart > maxChars) return -1;
- 
-      if (wordEnd - start > maxChars) {
-        i = wordStart;   // this word goes on the next line
-        break;
-      }
- 
-      end = wordEnd;
-      while (i < len && t[i] == ' ') i++;
-    }
- 
-    starts[n] = start;
-    lens[n] = end - start;
-    n++;
-  }
- 
-  return n;
-}
- 
- 
-// Draws text centered in the given area, using the largest size that fits
-// (tries size 3, then 2, then 1) and wrapping onto lines at spaces.
-void drawCentered(const char* text, int areaTop, int areaHeight) {
-  int starts[6];
-  int lens[6];
- 
-  display.setTextColor(SSD1306_WHITE);
- 
-  for (int size = 3; size >= 1; size--) {
-    int maxChars = SCREEN_WIDTH / (6 * size);
-    int maxLines = areaHeight / (8 * size);
-    if (maxLines > 6) maxLines = 6;
- 
-    int n = wrapText(text, maxChars, maxLines, starts, lens);
- 
-    if (n > 0) {
-      display.setTextSize(size);
-      int blockHeight = n * 8 * size;
-      int y = areaTop + (areaHeight - blockHeight) / 2;
- 
-      for (int line = 0; line < n; line++) {
-        int x = (SCREEN_WIDTH - lens[line] * 6 * size) / 2;
-        display.setCursor(x, y + line * 8 * size);
-        for (int k = 0; k < lens[line]; k++) {
-          display.write(text[starts[line] + k]);
-        }
-      }
-      return;
-    }
-  }
- 
-  // Fallback for text that can't be wrapped to fit
-  display.setTextSize(1);
-  display.setCursor(0, areaTop);
-  display.print(text);
-}
- 
- 
-// Small header on the top row, main text centered in the rest of the screen
-void showMessage(const __FlashStringHelper* header, const char* body) {
-  display.clearDisplay();
- 
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print(header);
- 
-  drawCentered(body, BODY_TOP, BODY_HEIGHT);
- 
-  display.display();
-}
- 
- 
+// Note: OLED_init() is called from setup() in the main file, before this.
 void buttons_init() {
   pinMode(POWER_BUTTON, INPUT_PULLUP);
   pinMode(NEXT_BUTTON, INPUT_PULLUP);
  
-  // If the OLED isn't found, the code keeps running instead of freezing
-  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
- 
-  showMessage(F("Exercise Tracker"), "Press POWER to begin");
+  OLED_display_message(F("Exercise Tracker"), "Press POWER to begin");
 }
  
  
@@ -205,7 +94,7 @@ void checkPowerButton() {
           // Pause session
           sessionRunning = false;
  
-          showMessage(F("Session Paused"), exercises[currentExercise]);
+          OLED_display_message(F("Session Paused"), exercises[currentExercise]);
         }
         else {
           // Resume session
@@ -251,7 +140,7 @@ void checkNextButton() {
           }
           else {
             // Already at the final exercise
-            showMessage(F("Workout Complete"), "No more exercises");
+            OLED_display_message(F("Workout Complete"), "No more exercises");
           }
         }
       }
@@ -262,45 +151,15 @@ void checkNextButton() {
 }
  
  
-// Cardio screen: header, "Cardio" label, and a big countdown that fills the rest
+// Sends the cardio countdown (or the "done" message) to the OLED
 void drawCardio() {
   if (cardioDone) {
-    showMessage(F("Cardio Complete"), "Press NEXT");
+    OLED_display_message(F("Cardio Complete"), "Press NEXT");
     return;
   }
  
   long totalSeconds = (cardioRemainingMs + 999) / 1000;  // round up
-  int minutes = totalSeconds / 60;
-  int seconds = totalSeconds % 60;
- 
-  char timeText[6];
-  timeText[0] = '0' + (minutes / 10);
-  timeText[1] = '0' + (minutes % 10);
-  timeText[2] = ':';
-  timeText[3] = '0' + (seconds / 10);
-  timeText[4] = '0' + (seconds % 10);
-  timeText[5] = '\0';
- 
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
- 
-  // Header
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print(F("Exercise 1 of "));
-  display.print(TOTAL_EXERCISES);
- 
-  // "Cardio" label, size 2, centered (6 chars * 12 px = 72 px wide)
-  display.setTextSize(2);
-  display.setCursor((SCREEN_WIDTH - 72) / 2, 11);
-  display.print(F("Cardio"));
- 
-  // Timer, size 4, centered (5 chars * 24 px = 120 px wide)
-  display.setTextSize(4);
-  display.setCursor((SCREEN_WIDTH - 120) / 2, 30);
-  display.print(timeText);
- 
-  display.display();
+  OLED_display_cardio(1, TOTAL_EXERCISES, totalSeconds / 60, totalSeconds % 60);
 }
  
  
@@ -311,21 +170,7 @@ void displayCurrentExercise() {
     return;
   }
  
-  display.clearDisplay();
- 
-  // Header
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print(F("Exercise "));
-  display.print(currentExercise + 1);
-  display.print(F(" of "));
-  display.print(TOTAL_EXERCISES);
- 
-  // Exercise name, auto-sized and centered
-  drawCentered(exercises[currentExercise], BODY_TOP, BODY_HEIGHT);
- 
-  display.display();
+  OLED_display_exercise(currentExercise + 1, TOTAL_EXERCISES, exercises[currentExercise]);
 }
  
  
