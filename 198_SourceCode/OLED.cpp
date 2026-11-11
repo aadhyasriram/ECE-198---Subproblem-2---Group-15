@@ -89,5 +89,16 @@ void OLED_warning(const char* problem) {
     display.println(problem);
     display.display();
 }
+void OLED_show_message(String m) {
+    coord m_coord = find_coord(m.length(), 20);
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+
+    display.setCursor(m_coord.getX(), m_coord.getY());
+    display.println(m);
+    display.display();
+}
+
 
 

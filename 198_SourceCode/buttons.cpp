@@ -8,7 +8,8 @@
 const int SCREEN_WIDTH = 128;
 const int SCREEN_HEIGHT = 64;
 const uint8_t OLED_ADDRESS = 0x3C;   // try 0x3D if the screen stays blank
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+extern Adafruit_SSD1306 display;
  
 // Layout: small header on the top row, main content fills the rest
 const int HEADER_HEIGHT = 12;
@@ -29,7 +30,7 @@ int currentExercise = 0;
  
 const int TOTAL_EXERCISES = 9;
  
-const char* exercises[TOTAL_EXERCISES] = {
+const String exercises[TOTAL_EXERCISES] = {
   "Cardio",
   "Hammer Curls",
   "Tricep Pushdown",
@@ -160,7 +161,7 @@ void buttons_init() {
   pinMode(NEXT_BUTTON, INPUT_PULLUP);
  
   // If the OLED isn't found, the code keeps running instead of freezing
-  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
+ // display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
  
   showMessage(F("Exercise Tracker"), "Press POWER to begin");
 }
@@ -173,11 +174,12 @@ void check_buttons() {
  
  
 // POWER BUTTON
-void checkPowerButton() {
+String checkPowerButton() {
   int reading = digitalRead(POWER_BUTTON);
- 
+
   if (reading != lastPowerReading) {
     lastPowerDebounceTime = millis();
+    Serial.print("clicked Power");
   }
  
   if (millis() - lastPowerDebounceTime > DEBOUNCE_DELAY) {
@@ -199,13 +201,14 @@ void checkPowerButton() {
           lastTickTime = millis();
           lastShownSeconds = -1;
  
-          displayCurrentExercise();
+          return exercises[currentExercise];
         }
         else if (sessionRunning) {
           // Pause session
+          updateTimer();
           sessionRunning = false;
  
-          showMessage(F("Session Paused"), exercises[currentExercise]);
+          return String("Paused: ") + exercises[currentExercise];
         }
         else {
           // Resume session
@@ -215,22 +218,25 @@ void checkPowerButton() {
           lastTickTime = millis();
           lastShownSeconds = -1;
  
-          displayCurrentExercise();
+          return exercises[currentExercise];
         }
       }
     }
   }
  
   lastPowerReading = reading;
+  return "";
 }
  
  
 // NEXT EXERCISE BUTTON
-void checkNextButton() {
+String checkNextButton() {
   int reading = digitalRead(NEXT_BUTTON);
  
   if (reading != lastNextReading) {
+    
     lastNextDebounceTime = millis();
+    Serial.print("clicked Next");
   }
  
   if (millis() - lastNextDebounceTime > DEBOUNCE_DELAY) {
@@ -241,17 +247,17 @@ void checkNextButton() {
       // Button pressed
       if (stableNextState == LOW) {
  
-        // Only advance during an active session
-        if (sessionRunning) {
+        // Allow advancing while paused, but not before the session starts.
+        if (sessionStarted) {
  
           // Check whether another exercise exists
           if (currentExercise < TOTAL_EXERCISES - 1) {
             currentExercise++;
-            displayCurrentExercise();
+            return exercises[currentExercise];
           }
           else {
             // Already at the final exercise
-            showMessage(F("Workout Complete"), "No more exercises");
+            return "No more exercises";
           }
         }
       }
@@ -259,53 +265,98 @@ void checkNextButton() {
   }
  
   lastNextReading = reading;
+  return "";
 }
  
  
-// Cardio screen: header, "Cardio" label, and a big countdown that fills the rest
-void drawCardio() {
-  if (cardioDone) {
-    showMessage(F("Cardio Complete"), "Press NEXT");
-    return;
-  }
+// // Cardio screen: header, "Cardio" label, and a big countdown that fills the rest
+// String drawCardio() {
+//   if (cardioDone) {
+//     showMessage(F("Cardio Complete"), "Press NEXT");
+//     return "";
+//   }
  
-  long totalSeconds = (cardioRemainingMs + 999) / 1000;  // round up
-  int minutes = totalSeconds / 60;
-  int seconds = totalSeconds % 60;
+//   long totalSeconds = (cardioRemainingMs + 999) / 1000;  // round up
+//   int minutes = totalSeconds / 60;
+//   int seconds = totalSeconds % 60;
  
-  char timeText[6];
-  timeText[0] = '0' + (minutes / 10);
-  timeText[1] = '0' + (minutes % 10);
-  timeText[2] = ':';
-  timeText[3] = '0' + (seconds / 10);
-  timeText[4] = '0' + (seconds % 10);
-  timeText[5] = '\0';
+//   char timeText[6];
+//   timeText[0] = '0' + (minutes / 10);
+//   timeText[1] = '0' + (minutes % 10);
+//   timeText[2] = ':';
+//   timeText[3] = '0' + (seconds / 10);
+//   timeText[4] = '0' + (seconds % 10);
+//   timeText[5] = '\0';
+//   return timeText;
  
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
+//   display.clearDisplay();
+//   display.setTextColor(SSD1306_WHITE);
  
-  // Header
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print(F("Exercise 1 of "));
-  display.print(TOTAL_EXERCISES);
+//   // Header
+//   display.setTextSize(1);
+//   display.setCursor(0, 0);
+//   display.print(F("Exercise 1 of "));
+//   display.print(TOTAL_EXERCISES);
  
-  // "Cardio" label, size 2, centered (6 chars * 12 px = 72 px wide)
-  display.setTextSize(2);
-  display.setCursor((SCREEN_WIDTH - 72) / 2, 11);
-  display.print(F("Cardio"));
+//   // "Cardio" label, size 2, centered (6 chars * 12 px = 72 px wide)
+//   display.setTextSize(2);
+//   display.setCursor((SCREEN_WIDTH - 72) / 2, 11);
+//   display.print(F("Cardio"));
  
-  // Timer, size 4, centered (5 chars * 24 px = 120 px wide)
-  display.setTextSize(4);
-  display.setCursor((SCREEN_WIDTH - 120) / 2, 30);
-  display.print(timeText);
+//   // Timer, size 4, centered (5 chars * 24 px = 120 px wide)
+//   display.setTextSize(4);
+//   display.setCursor((SCREEN_WIDTH - 120) / 2, 30);
+//   display.print(timeText);
  
-  display.display();
+//   display.display();
+// }
+String drawCardio() {
+
+    if (cardioDone) {
+        showMessage(F("Cardio Complete"), "Press NEXT");
+        return "";
+    }
+
+    long totalSeconds = (cardioRemainingMs + 999) / 1000;
+    int minutes = totalSeconds / 60;
+    int seconds = totalSeconds % 60;
+
+    char timeText[6];
+
+    sprintf(timeText, "%02d:%02d", minutes, seconds);
+
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    if (sessionRunning) {
+        display.print(F("Exercise 1 of "));
+        display.print(TOTAL_EXERCISES);
+    } else {
+        display.print(F("PAUSED"));
+    }
+
+    display.setTextSize(2);
+    display.setCursor((SCREEN_WIDTH - 72) / 2, 11);
+    display.print(F("Cardio"));
+
+    display.setTextSize(4);
+    display.setCursor((SCREEN_WIDTH - 120) / 2, 30);
+    display.print(timeText);
+
+    display.display();
+
+    return timeText;
 }
- 
  
 // DISPLAY CURRENT EXERCISE
 void displayCurrentExercise() {
+  if (!sessionStarted) {
+    showMessage(F("Exercise Tracker"), "Press POWER to begin");
+    return;
+  }
+
   if (currentExercise == 0) {
     drawCardio();
     return;
@@ -317,42 +368,83 @@ void displayCurrentExercise() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.print(F("Exercise "));
-  display.print(currentExercise + 1);
-  display.print(F(" of "));
-  display.print(TOTAL_EXERCISES);
+  if (sessionRunning) {
+    display.print(F("Exercise "));
+    display.print(currentExercise + 1);
+    display.print(F(" of "));
+    display.print(TOTAL_EXERCISES);
+  } else {
+    display.print(F("PAUSED"));
+  }
  
   // Exercise name, auto-sized and centered
-  drawCentered(exercises[currentExercise], BODY_TOP, BODY_HEIGHT);
+  drawCentered(exercises[currentExercise].c_str(),
+             BODY_TOP,
+             BODY_HEIGHT);
  
   display.display();
 }
  
  
 // CARDIO TIMER - call this every pass of loop()
-void updateTimer() {
-  // Only counts down during a running cardio exercise
-  if (!sessionRunning || currentExercise != 0 || cardioDone) {
-    return;
-  }
+// String updateTimer() {
+//   // Only counts down during a running cardio exercise
+//   if (!sessionRunning || currentExercise != 0 || cardioDone) {
+//     return "";
+//   }
  
-  unsigned long now = millis();
-  unsigned long elapsed = now - lastTickTime;
-  lastTickTime = now;
+//   unsigned long now = millis();
+//   unsigned long elapsed = now - lastTickTime;
+//   lastTickTime = now;
  
-  if (elapsed >= cardioRemainingMs) {
-    cardioRemainingMs = 0;
-    cardioDone = true;
-    drawCardio();
-    return;
-  }
+//   if (elapsed >= cardioRemainingMs) {
+//     cardioRemainingMs = 0;
+//     cardioDone = true;
+//     return "";
+//   }
  
-  cardioRemainingMs -= elapsed;
+//   cardioRemainingMs -= elapsed;
  
-  // Only redraw when the displayed second changes
-  long secondsLeft = (cardioRemainingMs + 999) / 1000;
-  if (secondsLeft != lastShownSeconds) {
-    lastShownSeconds = secondsLeft;
-    drawCardio();
-  }
+//   // Only redraw when the displayed second changes
+//   long secondsLeft = (cardioRemainingMs + 999) / 1000;
+//   if (secondsLeft != lastShownSeconds) {
+//     lastShownSeconds = secondsLeft;
+//     return drawCardio();
+//   }
+//   return "";
+// }
+String updateTimer() {
+
+    if (!sessionStarted || !sessionRunning || currentExercise != 0 || cardioDone) {
+        return "";
+    }
+
+    unsigned long now = millis();
+    unsigned long elapsed = now - lastTickTime;
+    lastTickTime = now;
+
+    if (elapsed >= cardioRemainingMs) {
+        cardioRemainingMs = 0;
+        cardioDone = true;
+        lastShownSeconds = 0;
+        return "00:00";
+    }
+
+    cardioRemainingMs -= elapsed;
+
+    long secondsLeft = (cardioRemainingMs + 999) / 1000;
+
+    if (secondsLeft != lastShownSeconds) {
+        lastShownSeconds = secondsLeft;
+        int minutes = secondsLeft / 60;
+        int seconds = secondsLeft % 60;
+        char timeText[6];
+        sprintf(timeText, "%02d:%02d", minutes, seconds);
+        return String(timeText);
+    }
+
+    return "";
+}
+String getCurrentExercise() {
+  return exercises[currentExercise];
 }

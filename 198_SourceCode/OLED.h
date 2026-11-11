@@ -1,5 +1,6 @@
 #ifndef OLED_H
 #define OLED_H
+#include <Arduino.h>
 
 class coord{   
   public:
@@ -23,6 +24,8 @@ void OLED_init(); //Call in setup() to initialize the OLED display
 void OLED_display_rep(int rep); //Call each time rep changes
 void OLED_display_HR(int minHR, int maxHR, int actualHR); //Call to show the HR range and actual HR
 void OLED_warning(const char* problem); //Call to display a warning message
+void OLED_show_message(String m);
+
 
 
 #endif

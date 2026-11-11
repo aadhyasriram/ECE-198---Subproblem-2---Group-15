@@ -1,11 +1,14 @@
 #ifndef BUTTONS_H
 #define BUTTONS_H
+#include <Arduino.h>
 
 void check_buttons();
 void buttons_init();
-void checkPowerButton();
-void checkNextButton();
+String checkPowerButton();
+String checkNextButton();
 void displayCurrentExercise();
-void updateTimer();
+String drawCardio();
+String updateTimer();
+String getCurrentExercise();
 
 #endif
