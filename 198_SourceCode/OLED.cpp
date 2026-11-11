@@ -184,7 +184,7 @@ void OLED_warning(const char* problem) {
 // ---------- Screens used by buttons.cpp ----------
  
 // Small header on the top row, main text centered in the rest of the screen
-void OLED_display_message(const __FlashStringHelper* header, const char* body) {
+void OLED_display_message(String header, const char* body) {
   display.clearDisplay();
  
   display.setTextSize(1);

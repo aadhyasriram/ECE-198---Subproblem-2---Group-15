@@ -1,6 +1,6 @@
 #include "buttons.h"
 #include "OLED.h"
-#include <Arduino.h>
+
  
 const int POWER_BUTTON = 2;
 const int NEXT_BUTTON = 3;
@@ -61,15 +61,15 @@ void check_buttons() {
 }
  
  
-// POWER BUTTON
-void checkPowerButton() {
+// POWER BUTTON (starts and pause)
+String checkPowerButton() {
   int reading = digitalRead(POWER_BUTTON);
  
   if (reading != lastPowerReading) {
     lastPowerDebounceTime = millis();
   }
  
-  if (millis() - lastPowerDebounceTime > DEBOUNCE_DELAY) {
+  if (millis() - lastPowerDebounceTime > DEBOUNCE_DELAY) { //button is pressed and we want change
  
     if (reading != stablePowerState) {
       stablePowerState = reading;
@@ -88,13 +88,15 @@ void checkPowerButton() {
           lastTickTime = millis();
           lastShownSeconds = -1;
  
-          displayCurrentExercise();
+          //displayCurrentExercise();
+          return "Cardio"; //should be cardio
+
         }
-        else if (sessionRunning) {
+        else if (sessionRunning) { //session started and is running. we want to pause it
           // Pause session
           sessionRunning = false;
  
-          OLED_display_message(F("Session Paused"), exercises[currentExercise]);
+          return "paused";
         }
         else {
           // Resume session
@@ -104,7 +106,7 @@ void checkPowerButton() {
           lastTickTime = millis();
           lastShownSeconds = -1;
  
-          displayCurrentExercise();
+          return "resumed";
         }
       }
     }
@@ -114,8 +116,8 @@ void checkPowerButton() {
 }
  
  
-// NEXT EXERCISE BUTTON
-void checkNextButton() {
+// NEXT EXERCISE BUTTON (change exercises)
+String checkNextButton() {
   int reading = digitalRead(NEXT_BUTTON);
  
   if (reading != lastNextReading) {
@@ -123,8 +125,8 @@ void checkNextButton() {
   }
  
   if (millis() - lastNextDebounceTime > DEBOUNCE_DELAY) {
- 
-    if (reading != stableNextState) {
+  
+    if (reading != stableNextState) { 
       stableNextState = reading;
  
       // Button pressed
@@ -136,18 +138,19 @@ void checkNextButton() {
           // Check whether another exercise exists
           if (currentExercise < TOTAL_EXERCISES - 1) {
             currentExercise++;
-            displayCurrentExercise();
+            lastNextReading = reading;
+            return "Next!";
           }
           else {
             // Already at the final exercise
-            OLED_display_message(F("Workout Complete"), "No more exercises");
+            lastNextReading = reading;
+            return "Done!";
           }
         }
       }
     }
   }
  
-  lastNextReading = reading;
 }
  
  
@@ -201,4 +204,12 @@ void updateTimer() {
     drawCardio();
   }
 }
- 
+int get_Current_Exercise(){
+  return currentExercise;
+}
+int get_lastTickTime(){
+  return lastTickTime;
+}
+int get_TOTAL_EXERCISES(){
+  return TOTAL_EXERCISES;
+}
