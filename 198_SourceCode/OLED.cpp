@@ -1,93 +1,251 @@
 #include "OLED.h"
+#include <Arduino.h>
+#include <string.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <cstring>
-// Screen Variables
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-
-#define OLED_RESET -1
-// int SDA_PIN=0;
-// int SCL_PIN=1;
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-// coord find_coord(int len, int y_offset=0, int x_offset=0); //Finds the coordinates to center text on the screen
-// int int_len(int n);
-// void OLED_init(); //Call in setup() to initialize the OLED display
-// void OLED_display_rep(int rep); //Call each time rep changes
-// void OLED_display_HR(int minHR, int maxHR, int actualHR); //Call to show the HR range and actual HR
-// void OLED_warning(const char* problem); //Call to display a warning message
-
-
+ 
+// OLED settings
+static const int SCREEN_WIDTH = 128;
+static const int SCREEN_HEIGHT = 64;
+static const uint8_t OLED_ADDRESS = 0x3C;   // try 0x3D if the screen stays blank
+static Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+ 
+static const int OLED_HEADER_HEIGHT = 12;
+ 
+ 
+// ---------- Basic helpers ----------
+ 
+// Finds the top-left coordinates that center one line of text (len characters,
+// text size 2: 12 x 16 px per character) on the screen.
 coord find_coord(int len, int y_offset, int x_offset) {
-    int x = (SCREEN_WIDTH - len*6) / 2 + x_offset;
-    int y = (SCREEN_HEIGHT - 8) / 2 + y_offset;
-    return coord(x, y);
+  int x = (SCREEN_WIDTH - len * 12) / 2 + x_offset;
+  int y = (SCREEN_HEIGHT - 16) / 2 + y_offset;
+  return coord(x, y);
 }
-
-int int_len(int n){
-  int len=1;
-  while (n > 9){
-    len+=1;
-    n=n/10;
+ 
+// Number of characters needed to print n (includes the minus sign)
+int int_len(int n) {
+  int len = 1;
+  if (n < 0) {
+    len++;
+    n = -n;
+  }
+  while (n >= 10) {
+    n /= 10;
+    len++;
   }
   return len;
 }
-
+ 
+ 
 void OLED_init() {
-    Wire.begin();
-    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
+  // If the OLED isn't found, the code keeps running instead of freezing
+  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
+  display.clearDisplay();
+  display.display();
 }
-
-void OLED_display_rep(int rep) {
-// Must clear the display before putting anything on it
-    coord rep_coord = find_coord(7 + int_len(rep), 0, -20);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(rep_coord.getX(), rep_coord.getY());
-    display.print("Reps: ");
-    display.print(rep);
-//    Serial.println(adcValue); // Print the value to Serial Monitor
-    display.display();
-}
-void OLED_display_HR(int minHR, int maxHR, int actualHR) {
-    if (minHR>999 || maxHR>999 || actualHR>999) {
-        OLED_warning("HR too high");
-        return;
+ 
+ 
+// ---------- Text layout helpers ----------
+ 
+// Splits text into lines at spaces so no line is longer than maxChars.
+// Returns the number of lines, or -1 if it doesn't fit.
+static int oledWrapText(const char* t, int maxChars, int maxLines, int starts[], int lens[]) {
+  int len = strlen(t);
+  int n = 0;
+  int i = 0;
+ 
+  while (i < len) {
+    while (i < len && t[i] == ' ') i++;
+    if (i >= len) break;
+    if (n >= maxLines) return -1;
+ 
+    int start = i;
+    int end = i;
+ 
+    while (i < len) {
+      int wordStart = i;
+      while (i < len && t[i] != ' ') i++;
+      int wordEnd = i;
+ 
+      if (wordEnd - wordStart > maxChars) return -1;
+ 
+      if (wordEnd - start > maxChars) {
+        i = wordStart;   // this word goes on the next line
+        break;
+      }
+ 
+      end = wordEnd;
+      while (i < len && t[i] == ' ') i++;
     }
-    coord hr_coord = find_coord(13+int_len(actualHR), -20);
-    coord range_coord = find_coord(12+int_len(minHR)+int_len(maxHR), 20);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(hr_coord.getX(), hr_coord.getY());
-    display.print("Your HR: ");
-    display.print(actualHR);
-    display.print(" BPM");
-
-    display.setCursor(range_coord.getX(), range_coord.getY());
-    display.print("Range: ");
-    display.print(minHR);
-    display.print("-");
-    display.print(maxHR);
-    display.print(" BPM");
-
-    display.display();
+ 
+    starts[n] = start;
+    lens[n] = end - start;
+    n++;
+  }
+ 
+  return n;
 }
+ 
+ 
+// Draws text centered in an area, using the largest size that fits
+// (size 3, then 2, then 1) and wrapping at spaces.
+static void oledDrawCentered(const char* text, int areaTop, int areaHeight) {
+  int starts[6];
+  int lens[6];
+ 
+  display.setTextColor(SSD1306_WHITE);
+ 
+  for (int size = 3; size >= 1; size--) {
+    int maxChars = SCREEN_WIDTH / (6 * size);
+    int maxLines = areaHeight / (8 * size);
+    if (maxLines > 6) maxLines = 6;
+ 
+    int n = oledWrapText(text, maxChars, maxLines, starts, lens);
+ 
+    if (n > 0) {
+      display.setTextSize(size);
+      int blockHeight = n * 8 * size;
+      int y = areaTop + (areaHeight - blockHeight) / 2;
+ 
+      for (int line = 0; line < n; line++) {
+        int x = (SCREEN_WIDTH - lens[line] * 6 * size) / 2;
+        display.setCursor(x, y + line * 8 * size);
+        for (int k = 0; k < lens[line]; k++) {
+          display.write(text[starts[line] + k]);
+        }
+      }
+      return;
+    }
+  }
+ 
+  // Fallback for text that can't be wrapped to fit
+  display.setTextSize(1);
+  display.setCursor(0, areaTop);
+  display.print(text);
+}
+ 
+ 
+// ---------- Rep / heart rate / warning screens ----------
+ 
+void OLED_display_rep(int rep) {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2);
+ 
+  coord c = find_coord(5 + int_len(rep));   // "Rep: " + number
+  display.setCursor(c.getX(), c.getY());
+  display.print(F("Rep: "));
+  display.print(rep);
+ 
+  display.display();
+}
+ 
+ 
+void OLED_display_HR(int minHR, int maxHR, int actualHR) {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+ 
+  // Target range, small text near the top
+  display.setTextSize(1);
+  int rangeLen = 7 + int_len(minHR) + 1 + int_len(maxHR);   // "Target " + min + "-" + max
+  display.setCursor((SCREEN_WIDTH - rangeLen * 6) / 2, 8);
+  display.print(F("Target "));
+  display.print(minHR);
+  display.print('-');
+  display.print(maxHR);
+ 
+  // Actual heart rate, larger and centered
+  display.setTextSize(2);
+  coord c = find_coord(4 + int_len(actualHR), 10);   // "HR: " + number
+  display.setCursor(c.getX(), c.getY());
+  display.print(F("HR: "));
+  display.print(actualHR);
+ 
+  display.display();
+}
+ 
+ 
 void OLED_warning(const char* problem) {
-    coord warn_coord = find_coord(7, -20);
-    coord prob_coord = find_coord(strlen(problem), 20);
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-
-    display.setCursor(warn_coord.getX(), warn_coord.getY());
-    display.println("WARNING");
-    display.setCursor(prob_coord.getX(), prob_coord.getY());
-    display.println(problem);
-    display.display();
+  display.clearDisplay();
+ 
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(F("WARNING"));
+ 
+  oledDrawCentered(problem, OLED_HEADER_HEIGHT, SCREEN_HEIGHT - OLED_HEADER_HEIGHT);
+ 
+  display.display();
 }
-
-
+ 
+ 
+// ---------- Screens used by buttons.cpp ----------
+ 
+// Small header on the top row, main text centered in the rest of the screen
+void OLED_display_message(const __FlashStringHelper* header, const char* body) {
+  display.clearDisplay();
+ 
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(header);
+ 
+  oledDrawCentered(body, OLED_HEADER_HEIGHT, SCREEN_HEIGHT - OLED_HEADER_HEIGHT);
+ 
+  display.display();
+}
+ 
+ 
+// "Exercise N of TOTAL" header with the exercise name auto-sized and centered
+void OLED_display_exercise(int number, int total, const char* name) {
+  display.clearDisplay();
+ 
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(F("Exercise "));
+  display.print(number);
+  display.print(F(" of "));
+  display.print(total);
+ 
+  oledDrawCentered(name, OLED_HEADER_HEIGHT, SCREEN_HEIGHT - OLED_HEADER_HEIGHT);
+ 
+  display.display();
+}
+ 
+ 
+// Header, "Cardio" label, and a large centered MM:SS countdown
+void OLED_display_cardio(int number, int total, int minutes, int seconds) {
+  char timeText[6];
+  timeText[0] = '0' + (minutes / 10);
+  timeText[1] = '0' + (minutes % 10);
+  timeText[2] = ':';
+  timeText[3] = '0' + (seconds / 10);
+  timeText[4] = '0' + (seconds % 10);
+  timeText[5] = '\0';
+ 
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+ 
+  // Header
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print(F("Exercise "));
+  display.print(number);
+  display.print(F(" of "));
+  display.print(total);
+ 
+  // "Cardio" label, size 2 (6 chars * 12 px = 72 px wide)
+  display.setTextSize(2);
+  display.setCursor((SCREEN_WIDTH - 72) / 2, 11);
+  display.print(F("Cardio"));
+ 
+  // Timer, size 4 (5 chars * 24 px = 120 px wide)
+  display.setTextSize(4);
+  display.setCursor((SCREEN_WIDTH - 120) / 2, 30);
+  display.print(timeText);
+ 
+  display.display();
+}
