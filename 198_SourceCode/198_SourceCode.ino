@@ -1,9 +1,11 @@
-void setup() {
-  // put your setup code here, to run once:
+#include "buttons.h"
 
+void setup() {
+    buttons_init();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
+    checkPowerButton();
+    checkNextButton();
+    updateTimer();
 }
