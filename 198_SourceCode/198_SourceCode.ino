@@ -3,7 +3,7 @@
 #include "buttons.h"
 int prev=100;
 
-const char* exercise= get_exercises();
+const char** exercise= get_exercises();
 unsigned long lastDisplayTime = 0;
 const unsigned long DISPLAY_INTERVAL = 3000;
 
@@ -66,7 +66,7 @@ void loop() {
 
     // 2. CONTINUOUS SESSION EXECUTION
 
-  if (get_sessionRunning()) {
+  if (get_session_running()) {
 
     // Update timer continuously (only counts down during cardio)
     updateTimer();

@@ -246,7 +246,7 @@ int get_TOTAL_EXERCISES(){
 bool get_session_running(){
   return sessionRunning;
 }
-const char* get_exercises(){
+const char** get_exercises(){
   return exercises;
 }
 

@@ -11,7 +11,7 @@ int get_Current_Exercise();//in case the caller might want...
 int get_lastTickTime();
 int get_TOTAL_EXERCISES();
 bool get_session_running();
-const char* get_exercises();
+const char** get_exercises();
 volatile bool get_powerb_event();
 volatile bool get_nextb_event();
 
