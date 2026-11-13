@@ -4,6 +4,10 @@
  
 const int POWER_BUTTON = 2;
 const int NEXT_BUTTON = 3;
+
+//used in hardware interrupt. So that button clicks can be detected even if the cpu is not currently checking the loop
+volatile bool powerb_event= false;
+volatile bool nextb_event=false;
  
 const unsigned long DEBOUNCE_DELAY = 50;
  
@@ -50,10 +54,28 @@ bool cardioDone = false;
 void buttons_init() {
   pinMode(POWER_BUTTON, INPUT_PULLUP);
   pinMode(NEXT_BUTTON, INPUT_PULLUP);
- 
+
+  attachInterrupt(
+    digitalPinToInterrupt(POWER_BUTTON),
+    powerb_ISR,
+    FALLING
+  );
+
+  attachInterrupt(
+    digitalPinToInterrupt(NEXT_BUTTON),
+    nextb_ISR,
+    FALLING
+  );
   OLED_display_message(F("Exercise Tracker"), "Press POWER to begin");
 }
- 
+
+void powerb_ISR(){
+  powerb_event=true;
+}
+
+void nextb_ISR(){
+  nextb_event=true;
+}
  
 void check_buttons() {
   checkPowerButton();
@@ -62,12 +84,17 @@ void check_buttons() {
  
  
 // POWER BUTTON (starts and pause)
+//Cardio is returned when session is not started and button is pressed
+//paused is returned when session is started and is running
+//resumed is returned when session is not running and session is started
+// "" is returned when we dont want to count the press
 String checkPowerButton() {
   int reading = digitalRead(POWER_BUTTON);
  
-  if (reading != lastPowerReading) {
+  if (reading != lastPowerReading) { //pressed than released or not pressed then pressed
     lastPowerDebounceTime = millis();
   }
+  lastPowerReading = reading; 
  
   if (millis() - lastPowerDebounceTime > DEBOUNCE_DELAY) { //button is pressed and we want change
  
@@ -76,6 +103,7 @@ String checkPowerButton() {
  
       // Button pressed
       if (stablePowerState == LOW) {
+        powerb_event= false;
         if (!sessionStarted) {
           // First start: begin with cardio
           sessionStarted = true;
@@ -111,23 +139,26 @@ String checkPowerButton() {
       }
     }
   }
- 
-  lastPowerReading = reading;
+  return "";
 }
  
  
 // NEXT EXERCISE BUTTON (change exercises)
+//"Next!" is returned if session is running and we are not at the last exercise
+// "Done!" is returned if session is at the last exercise
+//"" is returned is session is not running or debounce stuff we dont count
 String checkNextButton() {
   int reading = digitalRead(NEXT_BUTTON);
  
   if (reading != lastNextReading) {
     lastNextDebounceTime = millis();
   }
- 
+  lastNextReading= reading;
   if (millis() - lastNextDebounceTime > DEBOUNCE_DELAY) {
   
     if (reading != stableNextState) { 
       stableNextState = reading;
+      nextb_event= false;
  
       // Button pressed
       if (stableNextState == LOW) {
@@ -150,29 +181,28 @@ String checkNextButton() {
       }
     }
   }
+  return "";
  
 }
- 
  
 // Sends the cardio countdown (or the "done" message) to the OLED
 void drawCardio() {
   if (cardioDone) {
     OLED_display_message(F("Cardio Complete"), "Press NEXT");
-    return;
+    return; 
   }
- 
   long totalSeconds = (cardioRemainingMs + 999) / 1000;  // round up
   OLED_display_cardio(1, TOTAL_EXERCISES, totalSeconds / 60, totalSeconds % 60);
 }
  
  
 // DISPLAY CURRENT EXERCISE
+ 
 void displayCurrentExercise() {
   if (currentExercise == 0) {
     drawCardio();
     return;
   }
- 
   OLED_display_exercise(currentExercise + 1, TOTAL_EXERCISES, exercises[currentExercise]);
 }
  
@@ -183,7 +213,6 @@ void updateTimer() {
   if (!sessionRunning || currentExercise != 0 || cardioDone) {
     return;
   }
- 
   unsigned long now = millis();
   unsigned long elapsed = now - lastTickTime;
   lastTickTime = now;
@@ -212,4 +241,18 @@ int get_lastTickTime(){
 }
 int get_TOTAL_EXERCISES(){
   return TOTAL_EXERCISES;
+}
+
+bool get_session_running(){
+  return sessionRunning;
+}
+const char* get_exercises(){
+  return exercises;
+}
+
+volatile bool get_powerb_event(){
+  return powerb_event;
+}
+volatile bool get_nextb_event(){
+  return nextb_event;
 }

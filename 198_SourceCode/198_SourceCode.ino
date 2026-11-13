@@ -2,18 +2,13 @@
 #include "OLED.h"
 #include "buttons.h"
 int prev=100;
-int time;
-const char* exercise[9] = {
-  "Cardio",
-  "Hammer Curls",
-  "Tricep Pushdown",
-  "Shoulder Press",
-  "Seated Ab Crunch",
-  "Lat Pulldown",
-  "Incline Bench Press",
-  "Dumbbell Sumo Squat",
-  "Romanian Deadlift"
-};
+
+const char* exercise= get_exercises();
+unsigned long lastDisplayTime = 0;
+const unsigned long DISPLAY_INTERVAL = 3000;
+
+int displayPage = 0;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -23,28 +18,84 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  if (checkPowerButton()=="Cardio"){
-    for (int k{0};k<100;k++){ //display for a while...
-      time= millis()-get_lastTickTime();
-      OLED_display_cardio(1, get_TOTAL_EXERCISES(), time/60000, (time- time%60000)/1000 );
+
+  // 1. BUTTON HANDLING
+
+  if (get_powerb_event()) {
+    String info = checkPowerButton();
+
+    if (info == "Cardio") {
+      Serial.println("Cardio");
+
+      // Reset display timing when cardio starts
+      lastDisplayTime = millis();
+      displayPage = 0;
+    }
+    else if (info == "paused") {
+      Serial.println("paused");
+      OLED_display_message("Paused", exercise[get_Current_Exercise()]);
+    }
+    else if (info == "resumed") {
+      Serial.println("resumed");
+      lastDisplayTime = millis();
+      displayPage = 0;
+      displayCurrentExercise();
+    }
+    else{
+      Serial.println("Debounce doesnt count");
     }
   }
-  else if (checkPowerButton()=="Paused"){
-    Serial.println("Paused");
-    OLED_display_message("Paused",exercise[get_Current_Exercise()]);
-  }
-  else {
-    Serial.println("Resumed");
-    OLED_display_message("Resumed",exercise[get_Current_Exercise()]);
-  }
-  int chr= Max30102_readHR();
-  int filtered_chr= Max30102_filteredHR(prev);
-  checkNextButton();
-  // OLED_display_HR(90, 153, filtered_chr); //Call to show the HR range and actual HR
-  prev= filtered_chr;
-  updateTimer();
 
+  if (get_nextb_event()) {
+    String info = checkNextButton();
+
+    if (info == "Next!") {
+      Serial.println("Next!");
+      lastDisplayTime = millis();
+      displayPage = 0;
+      displayCurrentExercise();
+    }
+    else if (info == "Done!") {
+      Serial.println("Done!");
+    }
+    else{
+      Serial.println("Debounce doesnt count");
+    }
+  }
+
+
+    // 2. CONTINUOUS SESSION EXECUTION
+
+  if (get_sessionRunning()) {
+
+    // Update timer continuously (only counts down during cardio)
+    updateTimer();
+
+    // Read heart rate
+    int filtered_chr = Max30102_filteredHR(prev);
+    prev = filtered_chr;
+
+    // 3. OLED PAGE SWITCHING
+
+    if (millis() - lastDisplayTime >= DISPLAY_INTERVAL) {
+
+      lastDisplayTime = millis();
+
+      if (displayPage == 0) {
+        if (get_Current_Exercise() == 0) {
+          drawCardio();
+        }
+        else {
+          displayCurrentExercise();
+        }
+      }
+      else {
+        OLED_display_HR(90, 153, filtered_chr);
+      }
+
+      displayPage = (displayPage + 1) % 2;
+    }
+  }
 }
 
 
