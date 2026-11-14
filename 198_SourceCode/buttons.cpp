@@ -89,57 +89,54 @@ void check_buttons() {
 //resumed is returned when session is not running and session is started
 // "" is returned when we dont want to count the press
 String checkPowerButton() {
-  int reading = digitalRead(POWER_BUTTON);
- 
-  if (reading != lastPowerReading) { //pressed than released or not pressed then pressed
-    lastPowerDebounceTime = millis();
-  }
-  lastPowerReading = reading; 
+  int reading = LOW; //if i call this its cuz button is was pressed
  
   if (millis() - lastPowerDebounceTime > DEBOUNCE_DELAY) { //button is pressed and we want change
- 
-    if (reading != stablePowerState) {
-      stablePowerState = reading;
- 
+    Serial.print("Elapsed: ");
+    Serial.println(millis() - lastPowerDebounceTime);
       // Button pressed
-      if (stablePowerState == LOW) {
-        powerb_event= false;
-        if (!sessionStarted) {
-          // First start: begin with cardio
-          sessionStarted = true;
-          currentExercise = 0;
-          sessionRunning = true;
+    powerb_event= false;
+    if (!sessionStarted) {
+      // First start: begin with cardio
+      sessionStarted = true;
+      currentExercise = 0;
+      sessionRunning = true;
  
-          // Start the 15 minute cardio timer
-          cardioRemainingMs = CARDIO_DURATION_MS;
-          cardioDone = false;
-          lastTickTime = millis();
-          lastShownSeconds = -1;
+      // Start the 15 minute cardio timer
+      cardioRemainingMs = CARDIO_DURATION_MS;
+      cardioDone = false;
+      lastTickTime = millis();
+      lastShownSeconds = -1;
  
-          //displayCurrentExercise();
-          return "Cardio"; //should be cardio
-
-        }
-        else if (sessionRunning) { //session started and is running. we want to pause it
-          // Pause session
-          sessionRunning = false;
+      //displayCurrentExercise();
+      return "Cardio"; //should be cardio
+    }
+    else if (sessionRunning) { //session started and is running. we want to pause it
+      // Pause session
+      sessionRunning = false;
  
-          return "paused";
-        }
-        else {
-          // Resume session
-          sessionRunning = true;
+      return "paused";
+    }
+    else {
+    // Resume session
+      sessionRunning = true;
  
-          // Don't count the time spent paused
-          lastTickTime = millis();
-          lastShownSeconds = -1;
+      // Don't count the time spent paused
+      lastTickTime = millis();
+      lastShownSeconds = -1;
  
-          return "resumed";
-        }
-      }
+      return "resumed";
     }
   }
   return "";
+}
+ //call after chectPowerButton
+void reset_pb_deb_time() {
+  lastPowerDebounceTime = millis();
+}
+
+void reset_nb_deb_time(){
+  lastNextDebounceTime=millis();
 }
  
  
@@ -148,36 +145,24 @@ String checkPowerButton() {
 // "Done!" is returned if session is at the last exercise
 //"" is returned is session is not running or debounce stuff we dont count
 String checkNextButton() {
-  int reading = digitalRead(NEXT_BUTTON);
- 
-  if (reading != lastNextReading) {
-    lastNextDebounceTime = millis();
-  }
-  lastNextReading= reading;
+  int reading = LOW;
+
   if (millis() - lastNextDebounceTime > DEBOUNCE_DELAY) {
-  
-    if (reading != stableNextState) { 
-      stableNextState = reading;
-      nextb_event= false;
+    nextb_event= false;
  
-      // Button pressed
-      if (stableNextState == LOW) {
+    // Only advance during an active session
+    if (sessionRunning) {
  
-        // Only advance during an active session
-        if (sessionRunning) {
- 
-          // Check whether another exercise exists
-          if (currentExercise < TOTAL_EXERCISES - 1) {
-            currentExercise++;
-            lastNextReading = reading;
-            return "Next!";
-          }
-          else {
-            // Already at the final exercise
-            lastNextReading = reading;
-            return "Done!";
-          }
-        }
+    // Check whether another exercise exists
+      if (currentExercise < TOTAL_EXERCISES - 1) {
+        currentExercise++;
+        lastNextReading = reading;
+        return "Next!";
+      }
+      else {
+        // Already at the final exercise
+        lastNextReading = reading;
+        return "Done!";
       }
     }
   }
@@ -208,10 +193,10 @@ void displayCurrentExercise() {
  
  
 // CARDIO TIMER - call this every pass of loop()
-void updateTimer() {
+bool updateTimer() {
   // Only counts down during a running cardio exercise
   if (!sessionRunning || currentExercise != 0 || cardioDone) {
-    return;
+    return false;
   }
   unsigned long now = millis();
   unsigned long elapsed = now - lastTickTime;
@@ -220,8 +205,7 @@ void updateTimer() {
   if (elapsed >= cardioRemainingMs) {
     cardioRemainingMs = 0;
     cardioDone = true;
-    drawCardio();
-    return;
+    return true;
   }
  
   cardioRemainingMs -= elapsed;
@@ -230,8 +214,9 @@ void updateTimer() {
   long secondsLeft = (cardioRemainingMs + 999) / 1000;
   if (secondsLeft != lastShownSeconds) {
     lastShownSeconds = secondsLeft;
-    drawCardio();
+    return true;
   }
+  return false;
 }
 int get_Current_Exercise(){
   return currentExercise;

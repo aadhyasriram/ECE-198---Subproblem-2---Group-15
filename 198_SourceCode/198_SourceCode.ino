@@ -23,6 +23,7 @@ void loop() {
 
   if (get_powerb_event()) {
     String info = checkPowerButton();
+    reset_pb_deb_time();
 
     if (info == "Cardio") {
       Serial.println("Cardio");
@@ -42,12 +43,14 @@ void loop() {
       displayCurrentExercise();
     }
     else{
-      Serial.println("Debounce doesnt count");
+
+      Serial.println("Power: Debounce doesnt count");
     }
   }
 
   if (get_nextb_event()) {
     String info = checkNextButton();
+    reset_nb_deb_time();
 
     if (info == "Next!") {
       Serial.println("Next!");
@@ -59,7 +62,7 @@ void loop() {
       Serial.println("Done!");
     }
     else{
-      Serial.println("Debounce doesnt count");
+      Serial.println("Next: Debounce doesnt count");
     }
   }
 
@@ -67,10 +70,7 @@ void loop() {
     // 2. CONTINUOUS SESSION EXECUTION
 
   if (get_session_running()) {
-
-    // Update timer continuously (only counts down during cardio)
-    updateTimer();
-
+    bool timer_changed= updateTimer();
     // Read heart rate
     int filtered_chr = Max30102_filteredHR(prev);
     prev = filtered_chr;
@@ -82,7 +82,7 @@ void loop() {
       lastDisplayTime = millis();
 
       if (displayPage == 0) {
-        if (get_Current_Exercise() == 0) {
+        if ((get_Current_Exercise() == 0)&&(timer_changed)) {
           drawCardio();
         }
         else {
