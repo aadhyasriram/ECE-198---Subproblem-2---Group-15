@@ -14,6 +14,7 @@
   */
 
 #include <Arduino.h>
+#include <math.h>
 #include "BMX160.h"
 #define g 9.81
 #define cycle 10000
@@ -24,9 +25,13 @@ DFRobot_BMX160 bmx160;
 forearm_position current_position;
 int half_rep_count;
 double hammer_curl_error;
+double angle_error;
 unsigned long last_time;
 float filter_output;
 boolean filter_first_reading;
+float theta;
+boolean theta_first_reading;
+int error_counter;
 
 void imu_init(){
   Serial.begin(115200);
@@ -34,8 +39,11 @@ void imu_init(){
   current_position = FLOATING;
   half_rep_count = 0;
   hammer_curl_error = 1;
+  angle_error = 0.08726646259;
   last_time = 0;
   filter_first_reading = true;
+  error_counter = 0;
+  theta_first_reading = true;
   //init the hardware bmx160  
   if (bmx160.begin() != true){
     Serial.println("init false");
@@ -76,8 +84,36 @@ void get_sensor_data(exercises excr){
     Serial.println(rep_count(excr, Omagn, Oaccel, Ogyro));
   }
 }
+void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
+  switch (excr) {
+    case HAMMER_CURLS: {
+      float abs_filter_output = filter_output > 0 ? filter_output : -filter_output; //to get rid of orientation issues
+      float ratio = abs_filter_output/g;  
+      if (ratio < 0) {
+        ratio = 0;
+      } else if (ratio > 1) {
+        ratio = 1;
+      }
+      if (theta_first_reading) {
+        theta = acos(ratio);
+        theta_first_reading = false;
+        return;
+      }
+      if (theta <= PI/2 - angle_error && acos(ratio) + angle_error < theta && current_position == DOWN) {
+        error_counter += 1;
+        return;
+      }
+      else if (theta >= 0 + angle_error && acos(ratio) - angle_error > theta && current_position == UP) {
+        error_counter += 1;
+        return;
+      }
+      theta = alpha * theta + (1 - alpha) * acos(ratio);
+    }
+    default:
+      return;
+  }
+}
 
-// TODO: interpret data from sensors
 int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
   switch (excr) {
     case CARDIO:
