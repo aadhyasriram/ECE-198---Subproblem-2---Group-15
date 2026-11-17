@@ -1,122 +1,176 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
+
+const sampleResidents = [
+  {
+    id: "resident-a",
+    name: "Resident A",
+    exercises: [
+      {
+        name: "Bicep curls",
+        sets: 2,
+        reps: 20,
+        heartRate: 104,
+        status: "Completed",
+      },
+      {
+        name: "Shoulder press",
+        sets: 1,
+        reps: 10,
+        heartRate: 112,
+        status: "In progress",
+      },
+      {
+        name: "Cardio",
+        sets: 1,
+        reps: 0,
+        heartRate: 126,
+        status: "Completed",
+      },
+    ],
+  },
+  {
+    id: "resident-b",
+    name: "Resident B",
+    exercises: [
+      {
+        name: "Leg raises",
+        sets: 3,
+        reps: 30,
+        heartRate: 98,
+        status: "Completed",
+      },
+    ],
+  },
+];
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [residents, setResidents] = useState(sampleResidents);
+  const [selectedId, setSelectedId] = useState(sampleResidents[0].id);
+  const [connection, setConnection] = useState("Sample data");
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/workouts")
+      .then((response) => {
+        if (!response.ok) throw new Error("API unavailable");
+        return response.json();
+      })
+      .then((data) => {
+        if (data.residents?.length) {
+          setResidents(data.residents);
+          setSelectedId(data.residents[0].id);
+          setConnection(data.connected ? "Arduino connected" : "API connected");
+        }
+      })
+      .catch(() => {
+        // Keep sample data visible when the backend isn't running.
+        setConnection("Sample data");
+      });
+  }, []);
+
+  const resident =
+    residents.find((item) => item.id === selectedId) ?? residents[0];
+  const exercises = resident?.exercises ?? [];
+
+  const completedCount = exercises.filter(
+    (exercise) => exercise.status === "Completed",
+  ).length;
+  const totalSets = exercises.reduce((sum, exercise) => sum + exercise.sets, 0);
+  const totalReps = exercises.reduce((sum, exercise) => sum + exercise.reps, 0);
+  const peakHeartRate = Math.max(
+    0,
+    ...exercises.map((exercise) => exercise.heartRate ?? 0),
+  );
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
+    <main className="dashboard">
+      <header className="header">
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
+          <p className="eyebrow">CCCare</p>
+          <h1>Exercise dashboard</h1>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+        <span className="connection">{connection}</span>
+      </header>
+
+      <section className="filters">
+        <label htmlFor="resident">Resident</label>
+        <select
+          id="resident"
+          value={selectedId}
+          onChange={(event) => setSelectedId(event.target.value)}
         >
-          Count is {count}
-        </button>
+          {residents.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        <span>{new Date().toLocaleDateString()}</span>
       </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+      <section className="summary">
+        <SummaryCard
+          label="Exercises completed"
+          value={`${completedCount} / ${exercises.length}`}
+        />
+        <SummaryCard label="Sets completed" value={totalSets} />
+        <SummaryCard label="Reps completed" value={totalReps} />
+        <SummaryCard
+          label="Peak heart rate"
+          value={peakHeartRate ? `${peakHeartRate} bpm` : "—"}
+        />
       </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <section className="panel">
+        <p className="eyebrow">Session details</p>
+        <h2>{resident?.name ?? "No resident selected"}</h2>
+
+        {exercises.length === 0 ? (
+          <p>No exercise records yet.</p>
+        ) : (
+          <div className="exercise-list">
+            {exercises.map((exercise) => (
+              <article className="exercise" key={exercise.name}>
+                <strong>{exercise.name}</strong>
+                <span>{exercise.sets} sets</span>
+                <span>
+                  {exercise.reps ? `${exercise.reps} reps` : "Timed activity"}
+                </span>
+                <span>
+                  {exercise.heartRate == null
+                    ? "—"
+                    : `${exercise.heartRate} bpm`}
+                </span>
+                <span
+                  className={
+                    exercise.status === "Completed"
+                      ? "status"
+                      : "status in-progress"
+                  }
+                >
+                  {exercise.status}
+                </span>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <p className="note">
+        Sample project data. Heart-rate values are displayed for exercise
+        tracking and are not medical advice.
+      </p>
+    </main>
+  );
 }
 
-export default App
+function SummaryCard({ label, value }) {
+  return (
+    <article className="summary-card">
+      <p>{label}</p>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+export default App;
