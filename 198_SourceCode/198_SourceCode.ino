@@ -1,3 +1,4 @@
+#include "BMX160.h"
 #include "MAX20102.h"
 #include "OLED.h"
 #include "buttons.h"
@@ -12,6 +13,7 @@ int displayPage = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  imu_init();
   Max30102_init();
   OLED_init();
   buttons_init();
@@ -82,8 +84,12 @@ void loop() {
       lastDisplayTime = millis();
 
       if (displayPage == 0) {
-        if ((get_Current_Exercise() == 0)&&(timer_changed)) {
+        cur_exc= get_Current_Excercise();
+        if ((cur_exc == 0)&&(timer_changed)) {
           drawCardio();
+        }
+        else if(cur_exc==1){
+          OLED_display_rep(get_sensor_data(HAMMER_CURLS));
         }
         else {
           displayCurrentExercise();
