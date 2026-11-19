@@ -155,7 +155,7 @@ void OLED_display_HR(int minHR, int maxHR, int actualHR) {
   display.print(minHR);
   display.print('-');
   display.print(maxHR);
- 
+
   // Actual heart rate, larger and centered
   display.setTextSize(2);
   coord c = find_coord(4 + int_len(actualHR), 10);   // "HR: " + number

@@ -8,6 +8,11 @@ unsigned long lastDisplayTime = 0;
 const unsigned long DISPLAY_INTERVAL = 3000;
 
 int displayPage = 0;
+bool showRestingHR = false;
+int currentRestingHR = 0;
+int HRR = 0;
+int targetHRMin = 0;
+int targetHRMax = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -26,6 +31,7 @@ void loop() {
     reset_pb_deb_time();
 
     if (info == "Cardio") {
+      showRestingHR = true;
       Serial.println("Cardio");
 
       // Reset display timing when cardio starts
@@ -78,10 +84,12 @@ void loop() {
     // 3. OLED PAGE SWITCHING
 
     if (millis() - lastDisplayTime >= DISPLAY_INTERVAL) {
-
-      lastDisplayTime = millis();
-
       if (displayPage == 0) {
+        if (showRestingHR) {
+          OLED_display_message("Calc Resting HR...","");
+          currentRestingHR = restingHR();
+          showRestingHR = false;
+        }
         if ((get_Current_Exercise() == 0)&&(timer_changed)) {
           drawCardio();
         }
@@ -90,10 +98,14 @@ void loop() {
         }
       }
       else {
-        OLED_display_HR(90, 153, filtered_chr);
+        HRR = 153 - currentRestingHR;
+        targetHRMin = HRR *  5/ 10 + currentRestingHR;
+        targetHRMax = HRR * 85 / 100 + currentRestingHR;
+        OLED_display_HR(targetHRMin, targetHRMax, filtered_chr);
       }
 
       displayPage = (displayPage + 1) % 2;
+      lastDisplayTime = millis();
     }
   }
 }
