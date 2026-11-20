@@ -13,7 +13,7 @@ int currentRestingHR = 0;
 int HRR = 0;
 int targetHRMin = 0;
 int targetHRMax = 0;
-
+int cur_exc = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -80,6 +80,7 @@ void loop() {
     // Read heart rate
     int filtered_chr = Max30102_filteredHR(prev);
     prev = filtered_chr;
+    int reps = get_sensor_data(HAMMER_CURLS);
 
     // 3. OLED PAGE SWITCHING
 
@@ -90,8 +91,17 @@ void loop() {
           currentRestingHR = restingHR();
           showRestingHR = false;
         }
-        if ((get_Current_Exercise() == 0)&&(timer_changed)) {
+        cur_exc= get_Current_Exercise();
+        if ((cur_exc == 0)&&(timer_changed)) {
           drawCardio();
+        }
+        else if(cur_exc==1){
+          if (get_error_counter() >= 2) {
+            OLED_warning("Range of motion not enough!");
+            set_error_counter();
+          }else {
+            OLED_display_rep(reps);
+          }
         }
         else {
           displayCurrentExercise();
