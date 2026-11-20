@@ -20,10 +20,11 @@ enum forearm_position{
 };
 
 void imu_init(); //initalizes imu
-void get_sensor_data(exercises excr);
+int get_sensor_data(exercises excr);
 int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro);
 void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro);
-
+void set_error_counter();
+int get_error_counter();
 
 
 #endif

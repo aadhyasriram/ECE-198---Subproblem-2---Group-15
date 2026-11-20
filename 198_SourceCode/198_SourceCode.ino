@@ -9,6 +9,7 @@ unsigned long lastDisplayTime = 0;
 const unsigned long DISPLAY_INTERVAL = 3000;
 
 int displayPage = 0;
+int cur_exc = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -76,6 +77,7 @@ void loop() {
     // Read heart rate
     int filtered_chr = Max30102_filteredHR(prev);
     prev = filtered_chr;
+    int reps = get_sensor_data(HAMMER_CURLS);
 
     // 3. OLED PAGE SWITCHING
 
@@ -84,12 +86,18 @@ void loop() {
       lastDisplayTime = millis();
 
       if (displayPage == 0) {
-        cur_exc= get_Current_Excercise();
+        cur_exc= get_Current_Exercise();
         if ((cur_exc == 0)&&(timer_changed)) {
           drawCardio();
         }
         else if(cur_exc==1){
-          OLED_display_rep(get_sensor_data(HAMMER_CURLS));
+          if (get_error_counter() >= 2) {
+            OLED_warning("Range of motion not enough!");
+            set_error_counter();
+          }else {
+            OLED_display_rep(reps);
+          }
+          
         }
         else {
           displayCurrentExercise();

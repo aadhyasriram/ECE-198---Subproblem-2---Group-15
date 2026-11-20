@@ -32,6 +32,7 @@ boolean filter_first_reading;
 float theta;
 boolean theta_first_reading;
 int error_counter;
+int last_reading_accel;
 
 void imu_init(){
   Serial.begin(115200);
@@ -43,6 +44,8 @@ void imu_init(){
   last_time = 0;
   filter_first_reading = true;
   error_counter = 0;
+  last_reading_accel = -10;
+  theta = 0;
   theta_first_reading = true;
   //init the hardware bmx160  
   if (bmx160.begin() != true){
@@ -72,46 +75,50 @@ void imu_init(){
   delay(100);
 }
 
-void get_sensor_data(exercises excr){
+int get_sensor_data(exercises excr){
+  static int latest_reps = 0;
   sBmx160SensorData_t Omagn, Ogyro, Oaccel;
 
   /* Get a new sensor event */
   unsigned long current_time = micros();
-  if (current_time - last_time >= cycle) {
-    last_time += cycle;
-    bmx160.getAllData(&Omagn, &Ogyro, &Oaccel);
-    // selected exercise will be passed in
-    Serial.println(rep_count(excr, Omagn, Oaccel, Ogyro));
-  }
+  // if (current_time - last_time < cycle) {
+  //   return latest_reps;
+  // }
+  last_time = current_time;
+  bmx160.getAllData(&Omagn, &Ogyro, &Oaccel);
+  Serial.print(Oaccel.x);
+  Serial.print(" ");
+  Serial.print(Oaccel.y);
+  Serial.print(" ");
+  Serial.println(Oaccel.z);
+  latest_reps = rep_count(excr, Omagn, Oaccel, Ogyro);
+  set_error_counter(excr, Omagn, Oaccel, Ogyro);
+  return latest_reps;
+}
+int get_error_counter() {
+  return error_counter;
 }
 void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
   switch (excr) {
     case HAMMER_CURLS: {
-      float abs_filter_output = filter_output > 0 ? filter_output : -filter_output; //to get rid of orientation issues
-      float ratio = abs_filter_output/g;  
-      if (ratio < 0) {
-        ratio = 0;
-      } else if (ratio > 1) {
-        ratio = 1;
+      int value = Oaccel.z/g < -1 ? -1 : Oaccel.z/g;
+      value = Oaccel.z/g 
+      theta = acos(Oaccel.z/g);
+      if (current_position == DOWN && Oaccel.z < last_reading_accel - 2) {
+        error_counter++;
+        Serial.println("Error! Didn't go up enough");
+      } else if (current_position == UP && Oaccel.z > last_reading_accel + 2) {
+        error_counter++;
+        Serial.println("Error! Didn't go down enough");
       }
-      if (theta_first_reading) {
-        theta = acos(ratio);
-        theta_first_reading = false;
-        return;
-      }
-      if (theta <= PI/2 - angle_error && acos(ratio) + angle_error < theta && current_position == DOWN) {
-        error_counter += 1;
-        return;
-      }
-      else if (theta >= 0 + angle_error && acos(ratio) - angle_error > theta && current_position == UP) {
-        error_counter += 1;
-        return;
-      }
-      theta = alpha * theta + (1 - alpha) * acos(ratio);
+      last_reading_accel = Oaccel.z;
     }
     default:
       return;
   }
+}
+void set_error_counter() {
+  error_counter = 0;
 }
 
 int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
@@ -119,26 +126,25 @@ int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oac
     case CARDIO:
       return 0;
     case HAMMER_CURLS: {
-      filter_output = filter_first_reading ? Oaccel.z : alpha * filter_output + (1 - alpha) * Oaccel.z;
-      filter_first_reading = false;
-      float abs_filter_output = filter_output > 0 ? filter_output : -filter_output; //to get rid of orientation issues
       // use forearm axis
-      if ((abs_filter_output <= hammer_curl_error && abs_filter_output >= 0.0) || 
-        ((abs_filter_output >= -hammer_curl_error) && abs_filter_output<= 0.0 )) 
+      if ( 
+        (Oaccel.z>= (0.0 - 1) )) 
       {
         if (current_position == FLOATING) {
           current_position = UP;
+          Serial.print("UP");
         } else if (current_position == DOWN) {
           ++half_rep_count;
+          Serial.print("reached from down to up");
           current_position = UP;
         }
-      } else if ((abs_filter_output <= hammer_curl_error + g && abs_filter_output >= g) || 
-        ((abs_filter_output >= -hammer_curl_error + g) && abs_filter_output <= g )) 
+      } else if ( Oaccel.z <= (g * -1 + 1)) 
       {
         if (current_position == FLOATING) {
           current_position = DOWN;
         } else if (current_position == UP) {
           ++half_rep_count;
+          Serial.print("reached from up to down");
           current_position = DOWN;
         }
       }
