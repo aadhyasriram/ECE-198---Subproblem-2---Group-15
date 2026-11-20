@@ -33,6 +33,7 @@ float theta;
 boolean theta_first_reading;
 int error_counter;
 int last_reading_accel;
+bool wait;
 
 void imu_init(){
   Serial.begin(115200);
@@ -47,6 +48,7 @@ void imu_init(){
   last_reading_accel = -10;
   theta = 0;
   theta_first_reading = true;
+  wait = false;
   //init the hardware bmx160  
   if (bmx160.begin() != true){
     Serial.println("init false");
@@ -102,9 +104,12 @@ void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorD
   switch (excr) {
     case HAMMER_CURLS: {
       int value = Oaccel.z/g < -1 ? -1 : Oaccel.z/g;
-      value = Oaccel.z/g 
+      value = Oaccel.z/g;
       theta = acos(Oaccel.z/g);
-      if (current_position == DOWN && Oaccel.z < last_reading_accel - 2) {
+      if (wait) {
+        wait = false;
+      }
+      else if (current_position == DOWN && Oaccel.z < last_reading_accel - 2) {
         error_counter++;
         Serial.println("Error! Didn't go up enough");
       } else if (current_position == UP && Oaccel.z > last_reading_accel + 2) {
@@ -136,6 +141,7 @@ int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oac
         } else if (current_position == DOWN) {
           ++half_rep_count;
           Serial.print("reached from down to up");
+          wait = true;
           current_position = UP;
         }
       } else if ( Oaccel.z <= (g * -1 + 1)) 
@@ -145,6 +151,7 @@ int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oac
         } else if (current_position == UP) {
           ++half_rep_count;
           Serial.print("reached from up to down");
+          wait = true;
           current_position = DOWN;
         }
       }
