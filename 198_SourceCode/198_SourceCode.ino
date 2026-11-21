@@ -1,6 +1,7 @@
 #include "MAX20102.h"
 #include "OLED.h"
 #include "buttons.h"
+#include "BMX160.h"
 int prev=100;
 
 const char** exercise= get_exercises();
@@ -18,6 +19,7 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Max30102_init();
+  imu_init();
   OLED_init();
   buttons_init();
 }
