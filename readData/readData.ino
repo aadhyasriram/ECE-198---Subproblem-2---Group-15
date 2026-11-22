@@ -35,7 +35,9 @@ void setup()  {
   Serial.println(avgHRread);
   Serial.print(" Hammer curl ");
   Serial.println(repsPerExerciseRead[1]);
-  Serial.print("Number of errors for hammer curl");
+  Serial.print("Resting HR: ");
+  Serial.println(restingHRRead);
+  Serial.print("Number of errors for hammer curl ");
   Serial.println(errorsPerExerciseRead[1]);
   
 }
