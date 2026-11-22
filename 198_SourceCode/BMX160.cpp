@@ -32,6 +32,7 @@ boolean filter_first_reading;
 float theta;
 boolean theta_first_reading;
 int error_counter;
+int error_counter_copy;
 int last_reading_accel;
 bool wait;
 
@@ -100,6 +101,9 @@ int get_sensor_data(exercises excr){
 int get_error_counter() {
   return error_counter;
 }
+int get_error_counter_copy() {
+  return error_counter_copy;
+}
 void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro) {
   switch (excr) {
     case HAMMER_CURLS: {
@@ -111,9 +115,11 @@ void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorD
       }
       else if (current_position == DOWN && Oaccel.z < last_reading_accel - 2) {
         error_counter++;
+        error_counter_copy++;
         Serial.println("Error! Didn't go up enough");
       } else if (current_position == UP && Oaccel.z > last_reading_accel + 2) {
         error_counter++;
+        error_counter_copy++;
         Serial.println("Error! Didn't go down enough");
       }
       last_reading_accel = Oaccel.z;

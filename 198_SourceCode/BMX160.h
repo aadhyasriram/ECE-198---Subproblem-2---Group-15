@@ -25,6 +25,6 @@ int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oac
 void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oaccel, sBmx160SensorData_t Ogyro);
 void set_error_counter();
 int get_error_counter();
-
+int get_error_counter_copy();
 
 #endif

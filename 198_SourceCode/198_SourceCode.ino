@@ -28,6 +28,7 @@ int highestHR = 0;
 int lowestHR = 999;
 int avgHR = 0;
 int repsPerExercise[9]{};
+int errorsPerExercise[9]{};
 int currentRestingHR = 0;
 
 // address
@@ -110,6 +111,7 @@ void loop() {
     amountOfHRs++;
     avgHR = ((avgHR * (amountOfHRs - 1)) + filtered_chr)/amountOfHRs;
     repsPerExercise[get_Current_Exercise()] = reps;
+    errorsPerExercise[get_Current_Exercise()] = get_error_counter_copy();
     // eeprom
     currAddr = 0;
     EEPROM.put(currAddr, lowestHR);
@@ -123,6 +125,10 @@ void loop() {
     }
     currAddr += sizeof(int);
     EEPROM.put(currAddr,currentRestingHR);
+    for (int i : errorsPerExercise) {
+      currAddr += sizeof(int);
+      EEPROM.put(currAddr, i);
+    }
     // 3. OLED PAGE SWITCHING
 
     if (millis() - lastDisplayTime >= DISPLAY_INTERVAL) {
