@@ -2,20 +2,37 @@
 #include "OLED.h"
 #include "buttons.h"
 #include "BMX160.h"
+#include <EEPROM.h>
 
 int prev=100;
 
 const char** exercise= get_exercises();
 unsigned long lastDisplayTime = 0;
 const unsigned long DISPLAY_INTERVAL = 3000;
+exercises allExercises[9] = {CARDIO,HAMMER_CURLS,TRICEP_PUSHDOWN,
+                            SHOULDER_PRESS,SEATED_AB_CRUNCH,LAT_PULLDOWN,
+                            INCLINE_BENCH_PRESS, DUMBBELL_SUMO_SQUAT, ROMANIAN_DEADLIFT};
 
 int displayPage = 0;
 bool showRestingHR = false;
-int currentRestingHR = 0;
+
 int HRR = 0;
 int targetHRMin = 0;
 int targetHRMax = 0;
 int cur_exc = 0;
+
+int amountOfHRs = 0;
+
+// values to be saved
+int highestHR = 0;
+int lowestHR = 999;
+int avgHR = 0;
+int repsPerExercise[9]{};
+int currentRestingHR = 0;
+
+// address
+int currAddr = 0;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -83,8 +100,29 @@ void loop() {
     // Read heart rate
     int filtered_chr = Max30102_filteredHR(prev);
     prev = filtered_chr;
-    int reps = get_sensor_data(HAMMER_CURLS);
-
+    // get reps
+    int reps{};
+    reps = get_sensor_data(allExercises[get_Current_Exercise()]);
+     // could be replaced with hashmap
+    // values to be saved to persistent memory
+    lowestHR = lowestHR > filtered_chr ? filtered_chr : lowestHR;
+    highestHR = highestHR < filtered_chr ? filtered_chr : highestHR;
+    amountOfHRs++;
+    avgHR = ((avgHR * (amountOfHRs - 1)) + filtered_chr)/amountOfHRs;
+    repsPerExercise[get_Current_Exercise()] = reps;
+    // eeprom
+    currAddr = 0;
+    EEPROM.put(currAddr, lowestHR);
+    currAddr += sizeof(int);
+    EEPROM.put(currAddr, highestHR);
+    currAddr += sizeof(int);
+    EEPROM.put(currAddr, avgHR);
+    for (int i : repsPerExercise) {
+      currAddr += sizeof(int);
+      EEPROM.put(currAddr, i);
+    }
+    currAddr += sizeof(int);
+    EEPROM.put(currAddr,currentRestingHR);
     // 3. OLED PAGE SWITCHING
 
     if (millis() - lastDisplayTime >= DISPLAY_INTERVAL) {
