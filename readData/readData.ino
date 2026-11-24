@@ -12,6 +12,7 @@ void setup()  {
   Serial.begin(9600);
   while(!Serial) {;}
   delay(500);
+  // gets data from arduino
   EEPROM.get(currAddr,lowestHRread);
   currAddr += sizeof(int);
   EEPROM.get(currAddr, highestHRread);
@@ -27,6 +28,7 @@ void setup()  {
     currAddr += sizeof(int);
     EEPROM.get(currAddr, errorsPerExerciseRead[i]);
   }
+  //printing
   Serial.print("Lowest HR: ");
   Serial.println(lowestHRread);
   Serial.print("Highest HR: ");

@@ -102,10 +102,12 @@ void set_error_counter(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorD
         error_counter++;
         error_counter_copy++;
         Serial.println("Error! Didn't go up enough");
+        // error count increases
       } else if (current_position == UP && Oaccel.z > last_reading_accel + 2) {
         error_counter++;
         error_counter_copy++;
         Serial.println("Error! Didn't go down enough");
+        // error count increases
       }
       last_reading_accel = Oaccel.z;
     }
@@ -126,24 +128,29 @@ int rep_count(exercises excr, sBmx160SensorData_t Omagn, sBmx160SensorData_t Oac
       if ( 
         (Oaccel.z>= (0.0 - 1) )) 
       {
+        // checks if in certain range
         if (current_position == FLOATING) {
           current_position = UP;
+          // init to UP
           Serial.print("UP");
         } else if (current_position == DOWN) {
           ++half_rep_count;
           Serial.print("reached from down to up");
           wait = true;
           current_position = UP;
+          // counts half rep
         }
       } else if ( Oaccel.z <= (g * -1 + 1)) 
       {
         if (current_position == FLOATING) {
           current_position = DOWN;
+          // init to down
         } else if (current_position == UP) {
           ++half_rep_count;
           Serial.print("reached from up to down");
           wait = true;
           current_position = DOWN;
+          // counts half rep
         }
       }
       return half_rep_count / 2;

@@ -59,7 +59,7 @@ int restingHR() {
     while (count < 4) {
         int reading = Max30102_readHR();
 
-        if (reading != -1) {
+        if (reading >= 0) {
             arr[count] = reading;
             count++;
         }
