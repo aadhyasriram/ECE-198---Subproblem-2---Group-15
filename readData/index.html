@@ -1,102 +1,44 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Saved Exercise Session Data</title>
-  <style>
-    :root { font-family: Arial, sans-serif; color: #172033; background: #f4f6fa; }
-    body { max-width: 900px; margin: 32px auto; padding: 0 16px; }
-    h1 { margin-bottom: 8px; }
-    button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
-    #status { min-height: 24px; color: #536179; }
-    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
-    .card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px #dbe0ea; }
-    .card strong { display: block; font-size: 28px; margin-top: 6px; }
-    table { width: 100%; border-collapse: collapse; background: white; }
-    th, td { border: 1px solid #dbe0ea; padding: 10px; text-align: left; }
-    th { background: #eaf0fb; }
-    @media (max-width: 600px) { .cards { grid-template-columns: repeat(2, 1fr); } }
-  </style>
-</head>
+// AI DISCLAIMER: This code was taken from Google Gemini
+<!DOCTYPE html>
+<html>
 <body>
-  <h1>Saved Exercise Session Data</h1>
-  <button id="connect">Connect to Arduino</button>
-  <p id="status">Connect a device running readData.ino to display its saved data.</p>
-
-  <div class="cards">
-    <div class="card">Lowest HR<strong id="lowest">--</strong></div>
-    <div class="card">Highest HR<strong id="highest">--</strong></div>
-    <div class="card">Average HR<strong id="average">--</strong></div>
-    <div class="card">Resting HR<strong id="resting">--</strong></div>
-  </div>
-
-  <table>
-    <thead>
-      <tr><th>Exercise</th><th>Reps</th><th>Errors</th></tr>
-    </thead>
-    <tbody id="exerciseRows"></tbody>
-  </table>
+  <button id="connect">Connect Arduino</button>
+  <h2>Serial Output:</h2>
+  <!-- Changed from <span> to a <div> to hold multiple lines -->
+  <div id="output" style="font-family: monospace;">Waiting...</div>
 
   <script>
-    const exerciseNames = [
-      "Cardio", "Hammer Curls", "Tricep Pushdown", "Shoulder Press",
-      "Seated Ab Crunch", "Lat Pulldown", "Incline Bench Press",
-      "Dumbbell Sumo Squat", "Romanian Deadlift"
-    ];
+    document.getElementById('connect').addEventListener('click', async () => {
+      // 1. Prompt user to select the Arduino USB port
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 });
 
-    function displayData(data) {
-      document.getElementById("lowest").textContent = data.lowestHR;
-      document.getElementById("highest").textContent = data.highestHR;
-      document.getElementById("average").textContent = data.avgHR;
-      document.getElementById("resting").textContent = data.restingHR;
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML = ""; // Clear "Waiting..." once connected
 
-      const rows = exerciseNames.map((name, index) => {
-        return `<tr><td>${name}</td><td>${data.reps[index]}</td><td>${data.errors[index]}</td></tr>`;
-      }).join("");
-      document.getElementById("exerciseRows").innerHTML = rows;
-    }
+      // 2. Decode incoming serial bytes into text
+      const textDecoder = new TextDecoderStream();
+      port.readable.pipeTo(textDecoder.writable);
+      const reader = textDecoder.readable.getReader();
 
-    document.getElementById("connect").addEventListener("click", async () => {
-      if (!("serial" in navigator)) {
-        document.getElementById("status").textContent =
-          "Web Serial is not supported. Use Chrome or Edge and open this file through a local web server.";
-        return;
-      }
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        
+        // 3. Split by newline (from Serial.println) and append each line
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); 
 
-      try {
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
-        const decoder = new TextDecoder();
-        const reader = port.readable.getReader();
-        let received = "";
-
-        document.getElementById("status").textContent = "Waiting for saved data...";
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          received += decoder.decode(value, { stream: true });
-
-          const markerIndex = received.indexOf("DATA_JSON=");
-          if (markerIndex !== -1) {
-            const jsonText = received.slice(markerIndex + "DATA_JSON=".length).split(/\r?\n/)[0];
-            try {
-              displayData(JSON.parse(jsonText));
-              document.getElementById("status").textContent =
-                "Saved data received successfully.";
-            } catch (error) {
-              document.getElementById("status").textContent =
-                "Could not parse the data from the Arduino.";
-            }
-            break;
+        for (const line of lines) {
+          const cleanLine = line.trim();
+          if (cleanLine) {
+            const lineElement = document.createElement('div');
+            lineElement.textContent = cleanLine;
+            outputDiv.appendChild(lineElement);
           }
         }
-
-        reader.releaseLock();
-        await port.close();
-      } catch (error) {
-        document.getElementById("status").textContent =
-          `Connection error: ${error.message}`;
       }
     });
   </script>
